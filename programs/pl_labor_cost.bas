@@ -1,12 +1,12 @@
 Attribute VB_Name = "pl_labor_cost"
 Option Explicit
 Const cst_summary As String = "summary"
-Const cst_fulltime As String = "í‹Î"
-Const cst_parttime As String = "”ñí‹Î"
-Const cst_full_part As String = "í‹ÎE”ñí‹Î"
+Const cst_fulltime As String = "å¸¸å‹¤"
+Const cst_parttime As String = "éå¸¸å‹¤"
+Const cst_full_part As String = "å¸¸å‹¤ãƒ»éå¸¸å‹¤"
 Private Function arrayHeaderList() As Variant
 Dim cst_header_list As Variant
-    cst_header_list = Array("”NŒ", "’Ê”Ô", "Eˆõ”Ô†", "–¼", "‘xoŠz")
+    cst_header_list = Array("å¹´æœˆ", "é€šç•ª", "è·å“¡ç•ªå·", "æ°å", "ç·æ”¯å‡ºé¡")
     arrayHeaderList = cst_header_list
 End Function
 
@@ -25,11 +25,11 @@ Dim output_last_row As Long
 Dim input_str As String
     Application.ScreenUpdating = False
     save_addsheet_cnt = Application.SheetsInNewWorkbook
-    parentPath = Left(ThisWorkbook.Path, InStrRev(ThisWorkbook.Path, "\") - 1)
-    inputPath = parentPath & "\input"
-    outputPath = parentPath & "\output"
+    parentPath = Left(ThisWorkbook.Path, InStrRev(ThisWorkbook.Path, "Â¥") - 1)
+    inputPath = parentPath & "Â¥input"
+    outputPath = parentPath & "Â¥output"
     ' Target all files with "xlsx" extension
-    temp = Dir(inputPath & "\*.xlsx")
+    temp = Dir(inputPath & "Â¥*.xlsx")
     cnt = -1
     Do While temp <> ""
         cnt = cnt + 1
@@ -39,13 +39,13 @@ Dim input_str As String
     Loop
     ' If the file does not exist, exit
     If cnt = -1 Then
-        MsgBox prompt:="“ü—Íƒtƒ@ƒCƒ‹‚ª‘¶İ‚µ‚È‚©‚Á‚½‚½‚ßˆ—‚ğI—¹‚µ‚Ü‚·"
+        MsgBox prompt:="å…¥åŠ›ãƒ•ã‚¡ã‚¤ãƒ«ãŒå­˜åœ¨ã—ãªã‹ã£ãŸãŸã‚å‡¦ç†ã‚’çµ‚äº†ã—ã¾ã™"
         GoTo Finl_L
     End If
     ' Enter password
-    input_str = Application.InputBox(prompt:="ƒtƒ@ƒCƒ‹‚ÌƒpƒXƒ[ƒh‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢", Type:=2)
+    input_str = Application.InputBox(prompt:="ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„", Type:=2)
     If input_str = "False" Then
-        MsgBox prompt:="ƒpƒXƒ[ƒh‚ª“ü—Í‚³‚ê‚È‚©‚Á‚½‚½‚ßˆ—‚ğI—¹‚µ‚Ü‚·"
+        MsgBox prompt:="ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒå…¥åŠ›ã•ã‚Œãªã‹ã£ãŸãŸã‚å‡¦ç†ã‚’çµ‚äº†ã—ã¾ã™"
         GoTo Finl_L
     End If
     ' Create a workbook for output
@@ -65,12 +65,12 @@ Dim input_str As String
     ' Total Expenditure for each staff number
     output_wb.Worksheets(cst_summary).Activate
     Call createPivottable(output_wb, cst_full_part, cst_summary)
-    output_wb.SaveAs outputPath & "\" & Format(Now(), "yyyymmddhhmmss") & "test.xlsx"
+    output_wb.SaveAs outputPath & "Â¥" & Format(Now(), "yyyymmddhhmmss") & "test.xlsx"
     output_wb.Close
 Finl_L:
     Application.SheetsInNewWorkbook = save_addsheet_cnt
     Application.ScreenUpdating = True
-    MsgBox prompt:="ˆ—‚ªI—¹‚µ‚Ü‚µ‚½"
+    MsgBox prompt:="å‡¦ç†ãŒçµ‚äº†ã—ã¾ã—ãŸ"
 End Sub
 
 Private Sub copyFromInputToOutput(input_path As String, file_list() As String, output_wb As Workbook, input_password As String)
@@ -87,11 +87,11 @@ Dim error_str As String
     ThisWorkbook.Worksheets(1).Cells.Clear
     For i = LBound(file_list) To UBound(file_list)
         On Error Resume Next
-        Set input_wb = Workbooks.Open(Filename:=input_path & "\" & file_list(i), ReadOnly:=True, password:=input_password)
+        Set input_wb = Workbooks.Open(Filename:=input_path & "Â¥" & file_list(i), ReadOnly:=True, password:=input_password)
         If Err.Number = 0 Then
-            error_str = error_str & file_list(i) & "‚ğƒI[ƒvƒ“‚µ‚Ü‚µ‚½" & vbCrLf
+            error_str = error_str & file_list(i) & "ã‚’ã‚ªãƒ¼ãƒ—ãƒ³ã—ã¾ã—ãŸ" & vbCrLf
         Else
-            error_str = error_str & file_list(i) & "‚ÌƒI[ƒvƒ“‚É¸”s‚µ‚Ü‚µ‚½" & vbCrLf
+            error_str = error_str & file_list(i) & "ã®ã‚ªãƒ¼ãƒ—ãƒ³ã«å¤±æ•—ã—ã¾ã—ãŸ" & vbCrLf
             Err.Clear
             GoTo nextfile
         End If
@@ -226,10 +226,10 @@ Dim header_list As Variant
         .PivotFields(header_list(cst_id_idx)).Orientation = xlRowField
         .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(cst_name_idx))
         .PivotFields(header_list(cst_name_idx)).Orientation = xlRowField
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(cst_total_spending_idx)), "‡Œv / " & header_list(cst_total_spending_idx), xlSum
+        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(cst_total_spending_idx)), "åˆè¨ˆ / " & header_list(cst_total_spending_idx), xlSum
         .PivotFields(header_list(cst_id_idx)).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
-        .PivotFields("‡Œv / " & header_list(cst_id_idx)).Orientation = xlHidden
-        .PivotFields("ŒÂ” / " & header_list(cst_name_idx)).Orientation = xlHidden
+        .PivotFields("åˆè¨ˆ / " & header_list(cst_id_idx)).Orientation = xlHidden
+        .PivotFields("å€‹æ•° / " & header_list(cst_name_idx)).Orientation = xlHidden
     End With
     Set output_ws = Nothing
     Set input_ws = Nothing
