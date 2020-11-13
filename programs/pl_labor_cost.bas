@@ -1,19 +1,35 @@
 Attribute VB_Name = "pl_labor_cost"
 Option Explicit
-Const cst_summary As String = "summary"
+Const cst_summary_by_dept As String = "所属毎"
+Const cst_summary_by_dept_and_resource As String = "所属・財源毎"
 Const cst_fulltime As String = "常勤"
 Const cst_parttime As String = "非常勤"
 Const cst_full_part As String = "常勤・非常勤"
+Const cst_deptlist_name As String = "部署メンバー一覧.xlsx"
+Const cst_header_id As String = "職員番号"
+Const cst_header_name As String = "氏名"
+Const cst_header_dept As String = "所属"
+Const cst_header_total_spending As String = "総支出額"
+Const cst_header_financial_resource As String = "財源"
 Private Function arrayHeaderList() As Variant
 Dim cst_header_list As Variant
-    cst_header_list = Array("年月", "通番", "職員番号", "氏名", "総支出額")
+    cst_header_list = Array("年月", "通番", "職員番号", cst_header_name, cst_header_total_spending, cst_header_dept, cst_header_financial_resource)
     arrayHeaderList = cst_header_list
+End Function
+
+Private Function exec_vlookup(input_str As String, vloookup_range As Range, target_idx As Integer) As Variant
+Dim temp As Variant
+    On Error Resume Next
+    temp = Application.WorksheetFunction.VLookup(input_str, vloookup_range, target_idx, False)
+    On Error GoTo 0
+    exec_vlookup = temp
 End Function
 
 Public Sub main()
 On Error GoTo Finl_L
 Dim parentPath As String
 Dim inputPath As String
+Dim extPath As String
 Dim outputPath As String
 Dim fileList() As String
 Dim temp As String
@@ -23,10 +39,13 @@ Dim save_addsheet_cnt As Long
 Dim i As Integer
 Dim output_last_row As Long
 Dim input_str As String
+Dim input_year As String
+Dim deptlist_wb As Workbook
     Application.ScreenUpdating = False
     save_addsheet_cnt = Application.SheetsInNewWorkbook
     parentPath = Left(ThisWorkbook.Path, InStrRev(ThisWorkbook.Path, "¥") - 1)
-    inputPath = parentPath & "¥input"
+    inputPath = parentPath & "¥input¥rawdata"
+    extPath = parentPath & "¥input¥ext"
     outputPath = parentPath & "¥output"
     ' Target all files with "xlsx" extension
     temp = Dir(inputPath & "¥*.xlsx")
@@ -42,19 +61,34 @@ Dim input_str As String
         MsgBox prompt:="入力ファイルが存在しなかったため処理を終了します"
         GoTo Finl_L
     End If
+    On Error Resume Next
+    Workbooks.Open Filename:=extPath & "¥" & cst_deptlist_name
+    Set deptlist_wb = Workbooks(cst_deptlist_name)
+    On Error GoTo 0
+    If deptlist_wb Is Nothing Then
+        MsgBox prompt:=cst_deptlist_name & "が存在しなかったため処理を終了します"
+        GoTo Finl_L
+    End If
     ' Enter password
     input_str = Application.InputBox(prompt:="ファイルのパスワードを入力してください", Type:=2)
     If input_str = "False" Then
         MsgBox prompt:="パスワードが入力されなかったため処理を終了します"
         GoTo Finl_L
     End If
+    ' Enter years
+    input_year = Application.InputBox(prompt:="処理年度を入力してください", Type:=2)
+    If input_year = "False" Then
+        MsgBox prompt:="処理年度が入力されなかったため処理を終了します"
+        GoTo Finl_L
+    End If
     ' Create a workbook for output
-    Application.SheetsInNewWorkbook = 4
+    Application.SheetsInNewWorkbook = 5
     Set output_wb = Workbooks.Add
-    output_wb.Worksheets(1).Name = cst_summary
-    output_wb.Worksheets(2).Name = cst_fulltime
-    output_wb.Worksheets(3).Name = cst_parttime
-    output_wb.Worksheets(4).Name = cst_full_part
+    output_wb.Worksheets(1).Name = cst_summary_by_dept
+    output_wb.Worksheets(2).Name = cst_summary_by_dept_and_resource
+    output_wb.Worksheets(3).Name = cst_fulltime
+    output_wb.Worksheets(4).Name = cst_parttime
+    output_wb.Worksheets(5).Name = cst_full_part
     Call copyFromInputToOutput(inputPath, fileList, output_wb, input_str)
     Call editOutputWorksheet(output_wb.Worksheets(cst_fulltime))
     Call editOutputWorksheet(output_wb.Worksheets(cst_parttime))
@@ -62,15 +96,60 @@ Dim input_str As String
     output_last_row = copyAllCells(output_wb.Worksheets(cst_fulltime), output_wb.Worksheets(cst_full_part), 1, 1, 1, 1)
     output_last_row = copyAllCells(output_wb.Worksheets(cst_parttime), output_wb.Worksheets(cst_full_part), output_last_row + 1, 1, 2, 1)
     Call sortCellsBySeqAndYear(output_wb.Worksheets(cst_full_part), xlYes)
+    ' 部署を紐づけ
+    Call linkDepartmentByName(output_wb.Worksheets(cst_full_part), deptlist_wb, input_year)
     ' Total Expenditure for each staff number
-    output_wb.Worksheets(cst_summary).Activate
-    Call createPivottable(output_wb, cst_full_part, cst_summary)
+    output_wb.Worksheets(cst_summary_by_dept).Activate
+    Call createPivottableByDept(output_wb, cst_full_part, cst_summary_by_dept)
+    output_wb.Worksheets(cst_summary_by_dept_and_resource).Activate
+    Call createPivottableByDeptAndResource(output_wb, cst_full_part, cst_summary_by_dept_and_resource)
     output_wb.SaveAs outputPath & "¥" & Format(Now(), "yyyymmddhhmmss") & "test.xlsx"
     output_wb.Close
 Finl_L:
+    deptlist_wb.Close saveChanges:=False
     Application.SheetsInNewWorkbook = save_addsheet_cnt
     Application.ScreenUpdating = True
     MsgBox prompt:="処理が終了しました"
+End Sub
+Private Sub linkDepartmentByName(target_ws As Worksheet, dept_wb As Workbook, target_year As String)
+Const dept_vlookup_idx As Integer = 2
+Const financial_resource_vlookup_idx As Integer = 6
+Dim target_header_list() As Variant
+Dim last_row As Long
+Dim i As Long
+Dim fulltime_dept_ws As Worksheet
+Dim parttime_dept_ws As Worksheet
+Dim input_str As String
+Dim target_name_idx As Integer
+Dim target_output_idx As Integer
+Dim target_output_financial_resource_idx As Integer
+Dim dept_info As Variant
+Dim financial_resource_info As Variant
+    target_header_list = arrayHeaderList()
+    target_name_idx = getArrayIdx(target_header_list, cst_header_name)
+    target_output_idx = getArrayIdx(target_header_list, cst_header_dept)
+    target_output_financial_resource_idx = getArrayIdx(target_header_list, cst_header_financial_resource)
+    Set fulltime_dept_ws = dept_wb.Worksheets(target_year & cst_fulltime)
+    Set parttime_dept_ws = dept_wb.Worksheets(target_year & cst_parttime)
+    last_row = target_ws.Cells.SpecialCells(xlCellTypeLastCell).Row
+    For i = 2 To last_row
+        input_str = target_ws.Cells(i, target_name_idx + 1)
+        If input_str = "" Then
+            Exit For
+        End If
+        dept_info = exec_vlookup(input_str, fulltime_dept_ws.Range("B:H"), dept_vlookup_idx)
+        financial_resource_info = exec_vlookup(input_str, fulltime_dept_ws.Range("B:H"), financial_resource_vlookup_idx)
+        If IsEmpty(dept_info) Then
+            dept_info = exec_vlookup(input_str, parttime_dept_ws.Range("B:H"), dept_vlookup_idx)
+            financial_resource_info = exec_vlookup(input_str, parttime_dept_ws.Range("B:H"), financial_resource_vlookup_idx)
+        End If
+        If IsEmpty(dept_info) Then
+            dept_info = "！！！エラー！！！"
+            financial_resource_info = ""
+        End If
+        target_ws.Cells(i, target_output_idx + 1) = dept_info
+        target_ws.Cells(i, target_output_financial_resource_idx + 1) = financial_resource_info
+    Next i
 End Sub
 
 Private Sub copyFromInputToOutput(input_path As String, file_list() As String, output_wb As Workbook, input_password As String)
@@ -106,7 +185,7 @@ Dim error_str As String
                 output_parttime_last_row = outputValues(temp_ws, output_wb.Worksheets(cst_parttime), output_parttime_last_row, yymm)
             End If
         Next temp_ws
-        input_wb.Close savechanges:=False
+        input_wb.Close saveChanges:=False
 nextfile:
     Next i
 Finl_L:
@@ -206,30 +285,72 @@ Private Sub sortCellsBySeqAndYear(target_ws As Worksheet, header_f As Variant)
                          Header:=header_f, Orientation:=xlSortColumns, SortMethod:=xlStroke
 End Sub
 
-Private Sub createPivottable(output_wb As Workbook, input_ws_name As String, output_ws_name As String)
-Const cst_pivottable_name As String = "pt1"
-Const cst_id_idx As Integer = 2
-Const cst_name_idx As Integer = 3
-Const cst_total_spending_idx As Integer = 4
+Private Function getArrayIdx(array_list As Variant, target_str As String) As Integer
+Dim temp As Variant
+Dim res As Integer
+    On Error Resume Next
+    temp = Application.WorksheetFunction.Match(target_str, array_list, 0)
+    On Error GoTo 0
+    If IsEmpty(temp) Then
+        res = -1
+    Else
+        res = temp - 1
+    End If
+    getArrayIdx = res
+End Function
+
+Private Sub createPivottableByDept(output_wb As Workbook, input_ws_name As String, output_ws_name As String)
+Const cst_pivottable_name As String = "pt2"
+Dim dept_idx As Integer
+Dim total_spending_idx As Integer
 Dim input_ws As Worksheet
 Dim output_ws As Worksheet
 Dim header_list As Variant
     header_list = arrayHeaderList()
+    dept_idx = getArrayIdx(header_list, cst_header_dept)
+    total_spending_idx = getArrayIdx(header_list, cst_header_total_spending)
     Set input_ws = output_wb.Worksheets(input_ws_name)
     Set output_ws = output_wb.Worksheets(output_ws_name)
-    output_wb.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=input_ws.Range("A:E")).createPivottable _
+    output_wb.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=input_ws.Range("A:G")).createPivottable _
                                  TableDestination:=output_ws.Range("A1"), TableName:=cst_pivottable_name
     With output_ws.PivotTables(cst_pivottable_name)
         .InGridDropZones = True
         .RowAxisLayout xlTabularRow
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(cst_id_idx))
-        .PivotFields(header_list(cst_id_idx)).Orientation = xlRowField
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(cst_name_idx))
-        .PivotFields(header_list(cst_name_idx)).Orientation = xlRowField
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(cst_total_spending_idx)), "合計 / " & header_list(cst_total_spending_idx), xlSum
-        .PivotFields(header_list(cst_id_idx)).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
-        .PivotFields("合計 / " & header_list(cst_id_idx)).Orientation = xlHidden
-        .PivotFields("個数 / " & header_list(cst_name_idx)).Orientation = xlHidden
+        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(dept_idx))
+        .PivotFields(header_list(dept_idx)).Orientation = xlRowField
+        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(total_spending_idx)), "合計 / " & header_list(total_spending_idx), xlSum
+        .PivotFields("個数 / " & cst_header_dept).Orientation = xlHidden
+    End With
+    Set output_ws = Nothing
+    Set input_ws = Nothing
+End Sub
+Private Sub createPivottableByDeptAndResource(output_wb As Workbook, input_ws_name As String, output_ws_name As String)
+Const cst_pivottable_name As String = "pt3"
+Dim dept_idx As Integer
+Dim resource_idx As Integer
+Dim total_spending_idx As Integer
+Dim input_ws As Worksheet
+Dim output_ws As Worksheet
+Dim header_list As Variant
+    header_list = arrayHeaderList()
+    dept_idx = getArrayIdx(header_list, cst_header_dept)
+    resource_idx = getArrayIdx(header_list, cst_header_financial_resource)
+    total_spending_idx = getArrayIdx(header_list, cst_header_total_spending)
+    Set input_ws = output_wb.Worksheets(input_ws_name)
+    Set output_ws = output_wb.Worksheets(output_ws_name)
+    output_wb.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=input_ws.Range("A:G")).createPivottable _
+                                 TableDestination:=output_ws.Range("A1"), TableName:=cst_pivottable_name
+    With output_ws.PivotTables(cst_pivottable_name)
+        .InGridDropZones = True
+        .RowAxisLayout xlTabularRow
+        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(dept_idx))
+        .PivotFields(header_list(dept_idx)).Orientation = xlRowField
+        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(resource_idx))
+        .PivotFields(header_list(resource_idx)).Orientation = xlRowField
+        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(total_spending_idx)), "合計 / " & header_list(total_spending_idx), xlSum
+        .PivotFields("個数 / " & cst_header_dept).Orientation = xlHidden
+        .PivotFields("個数 / " & cst_header_financial_resource).Orientation = xlHidden
+        .PivotFields(cst_header_dept).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
     End With
     Set output_ws = Nothing
     Set input_ws = Nothing
