@@ -103,7 +103,13 @@ Dim dept_part_ws As Worksheet
     Call createPivottableByDept(output_wb, cst_full_part, cst_summary_by_dept)
     output_wb.Worksheets(cst_summary_by_dept_and_resource).Activate
     Call createPivottableByDeptAndResource(output_wb, cst_full_part, cst_summary_by_dept_and_resource)
-    output_wb.SaveAs outputPath & "¥" & Format(Now(), "yyyymmddhhmmss") & "test.xlsx"
+    dept_full_ws.Visible = xlSheetHidden
+    dept_part_ws.Visible = xlSheetHidden
+    With output_wb.Worksheets(1)
+        .Activate
+        .Cells(1, 1).Select
+    End With
+    output_wb.SaveAs outputPath & "¥" & Format(Now(), "yyyymmdd_hhmmss") & ".xlsx"
     output_wb.Close
 Finl_L:
     deptlist_wb.Close saveChanges:=False
