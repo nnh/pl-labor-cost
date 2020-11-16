@@ -1,28 +1,20 @@
 Attribute VB_Name = "pl_labor_cost"
 Option Explicit
-Const cst_summary_by_dept As String = "æ‰€å±æ¯"
-Const cst_summary_by_dept_and_resource As String = "æ‰€å±ãƒ»è²¡æºæ¯"
-Const cst_fulltime As String = "å¸¸å‹¤"
-Const cst_parttime As String = "éå¸¸å‹¤"
-Const cst_full_part As String = "å¸¸å‹¤ãƒ»éå¸¸å‹¤"
-Const cst_deptlist_name As String = "éƒ¨ç½²ãƒ¡ãƒ³ãƒãƒ¼ä¸€è¦§.xlsx"
-Const cst_header_id As String = "è·å“¡ç•ªå·"
-Const cst_header_name As String = "æ°å"
-Const cst_header_dept As String = "æ‰€å±"
-Const cst_header_total_spending As String = "ç·æ”¯å‡ºé¡"
-Const cst_header_financial_resource As String = "è²¡æº"
+Const cst_summary_by_dept As String = "Š‘®–ˆ"
+Const cst_summary_by_dept_and_resource As String = "Š‘®EàŒ¹–ˆ"
+Const cst_fulltime As String = "í‹Î"
+Const cst_parttime As String = "”ñí‹Î"
+Const cst_full_part As String = "í‹ÎE”ñí‹Î"
+Const cst_deptlist_name As String = "•”ƒƒ“ƒo[ˆê——.xlsx"
+Const cst_header_id As String = "Eˆõ”Ô†"
+Const cst_header_name As String = "–¼"
+Const cst_header_dept As String = "Š‘®"
+Const cst_header_total_spending As String = "‘xoŠz"
+Const cst_header_financial_resource As String = "àŒ¹"
 Private Function arrayHeaderList() As Variant
 Dim cst_header_list As Variant
-    cst_header_list = Array("å¹´æœˆ", "é€šç•ª", "è·å“¡ç•ªå·", cst_header_name, cst_header_total_spending, cst_header_dept, cst_header_financial_resource)
+    cst_header_list = Array("”NŒ", "’Ê”Ô", "Eˆõ”Ô†", cst_header_name, cst_header_total_spending, cst_header_dept, cst_header_financial_resource)
     arrayHeaderList = cst_header_list
-End Function
-
-Private Function exec_vlookup(input_str As String, vloookup_range As Range, target_idx As Integer) As Variant
-Dim temp As Variant
-    On Error Resume Next
-    temp = Application.WorksheetFunction.VLookup(input_str, vloookup_range, target_idx, False)
-    On Error GoTo 0
-    exec_vlookup = temp
 End Function
 
 Public Sub main()
@@ -41,14 +33,16 @@ Dim output_last_row As Long
 Dim input_str As String
 Dim input_year As String
 Dim deptlist_wb As Workbook
+Dim dept_full_ws As Worksheet
+Dim dept_part_ws As Worksheet
     Application.ScreenUpdating = False
     save_addsheet_cnt = Application.SheetsInNewWorkbook
-    parentPath = Left(ThisWorkbook.Path, InStrRev(ThisWorkbook.Path, "Â¥") - 1)
-    inputPath = parentPath & "Â¥inputÂ¥rawdata"
-    extPath = parentPath & "Â¥inputÂ¥ext"
-    outputPath = parentPath & "Â¥output"
+    parentPath = Left(ThisWorkbook.Path, InStrRev(ThisWorkbook.Path, "\") - 1)
+    inputPath = parentPath & "\input\rawdata"
+    extPath = parentPath & "\input\ext"
+    outputPath = parentPath & "\output"
     ' Target all files with "xlsx" extension
-    temp = Dir(inputPath & "Â¥*.xlsx")
+    temp = Dir(inputPath & "\*.xlsx")
     cnt = -1
     Do While temp <> ""
         cnt = cnt + 1
@@ -58,27 +52,27 @@ Dim deptlist_wb As Workbook
     Loop
     ' If the file does not exist, exit
     If cnt = -1 Then
-        MsgBox prompt:="å…¥åŠ›ãƒ•ã‚¡ã‚¤ãƒ«ãŒå­˜åœ¨ã—ãªã‹ã£ãŸãŸã‚å‡¦ç†ã‚’çµ‚äº†ã—ã¾ã™"
+        MsgBox prompt:="“ü—Íƒtƒ@ƒCƒ‹‚ª‘¶İ‚µ‚È‚©‚Á‚½‚½‚ßˆ—‚ğI—¹‚µ‚Ü‚·"
         GoTo Finl_L
     End If
     On Error Resume Next
-    Workbooks.Open Filename:=extPath & "Â¥" & cst_deptlist_name
+    Workbooks.Open Filename:=extPath & "\" & cst_deptlist_name
     Set deptlist_wb = Workbooks(cst_deptlist_name)
     On Error GoTo 0
     If deptlist_wb Is Nothing Then
-        MsgBox prompt:=cst_deptlist_name & "ãŒå­˜åœ¨ã—ãªã‹ã£ãŸãŸã‚å‡¦ç†ã‚’çµ‚äº†ã—ã¾ã™"
+        MsgBox prompt:=cst_deptlist_name & "‚ª‘¶İ‚µ‚È‚©‚Á‚½‚½‚ßˆ—‚ğI—¹‚µ‚Ü‚·"
         GoTo Finl_L
     End If
     ' Enter password
-    input_str = Application.InputBox(prompt:="ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„", Type:=2)
+    input_str = Application.InputBox(prompt:="ƒtƒ@ƒCƒ‹‚ÌƒpƒXƒ[ƒh‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢", Type:=2)
     If input_str = "False" Then
-        MsgBox prompt:="ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒå…¥åŠ›ã•ã‚Œãªã‹ã£ãŸãŸã‚å‡¦ç†ã‚’çµ‚äº†ã—ã¾ã™"
+        MsgBox prompt:="ƒpƒXƒ[ƒh‚ª“ü—Í‚³‚ê‚È‚©‚Á‚½‚½‚ßˆ—‚ğI—¹‚µ‚Ü‚·"
         GoTo Finl_L
     End If
     ' Enter years
-    input_year = Application.InputBox(prompt:="å‡¦ç†å¹´åº¦ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„", Type:=2)
+    input_year = Application.InputBox(prompt:="ˆ—”N“x‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢", Type:=2)
     If input_year = "False" Then
-        MsgBox prompt:="å‡¦ç†å¹´åº¦ãŒå…¥åŠ›ã•ã‚Œãªã‹ã£ãŸãŸã‚å‡¦ç†ã‚’çµ‚äº†ã—ã¾ã™"
+        MsgBox prompt:="ˆ—”N“x‚ª“ü—Í‚³‚ê‚È‚©‚Á‚½‚½‚ßˆ—‚ğI—¹‚µ‚Ü‚·"
         GoTo Finl_L
     End If
     ' Create a workbook for output
@@ -95,30 +89,65 @@ Dim deptlist_wb As Workbook
     ' Summary of full-time and part-time
     output_last_row = copyAllCells(output_wb.Worksheets(cst_fulltime), output_wb.Worksheets(cst_full_part), 1, 1, 1, 1)
     output_last_row = copyAllCells(output_wb.Worksheets(cst_parttime), output_wb.Worksheets(cst_full_part), output_last_row + 1, 1, 2, 1)
+    Application.DisplayAlerts = False
+    output_wb.Worksheets(cst_fulltime).Delete
+    output_wb.Worksheets(cst_parttime).Delete
+    Application.DisplayAlerts = True
     Call sortCellsBySeqAndYear(output_wb.Worksheets(cst_full_part), xlYes)
-    ' éƒ¨ç½²ã‚’ç´ã¥ã‘
-    Call linkDepartmentByName(output_wb.Worksheets(cst_full_part), deptlist_wb, input_year)
+    ' Link department
+    Set dept_full_ws = copyDeptWs(deptlist_wb, output_wb, input_year & cst_fulltime)
+    Set dept_part_ws = copyDeptWs(deptlist_wb, output_wb, input_year & cst_parttime)
+    Call linkDepartmentByName(output_wb.Worksheets(cst_full_part), dept_full_ws, dept_part_ws)
     ' Total Expenditure for each staff number
     output_wb.Worksheets(cst_summary_by_dept).Activate
     Call createPivottableByDept(output_wb, cst_full_part, cst_summary_by_dept)
     output_wb.Worksheets(cst_summary_by_dept_and_resource).Activate
     Call createPivottableByDeptAndResource(output_wb, cst_full_part, cst_summary_by_dept_and_resource)
-    output_wb.SaveAs outputPath & "Â¥" & Format(Now(), "yyyymmddhhmmss") & "test.xlsx"
+    output_wb.SaveAs outputPath & "\" & Format(Now(), "yyyymmddhhmmss") & "test.xlsx"
     output_wb.Close
 Finl_L:
     deptlist_wb.Close saveChanges:=False
     Application.SheetsInNewWorkbook = save_addsheet_cnt
     Application.ScreenUpdating = True
-    MsgBox prompt:="å‡¦ç†ãŒçµ‚äº†ã—ã¾ã—ãŸ"
+    MsgBox prompt:="ˆ—‚ªI—¹‚µ‚Ü‚µ‚½"
 End Sub
-Private Sub linkDepartmentByName(target_ws As Worksheet, dept_wb As Workbook, target_year As String)
+
+Private Function copyDeptWs(copyFrom_wb As Workbook, copyTo_wb As Workbook, dept_ws_name As String) As Worksheet
+Dim dept_ws As Worksheet
+    copyFrom_wb.Worksheets(dept_ws_name).Copy after:=copyTo_wb.Worksheets(copyTo_wb.Worksheets.Count)
+    Set dept_ws = copyTo_wb.Worksheets(dept_ws_name)
+    Call removeCellsBlank(dept_ws)
+    Set copyDeptWs = dept_ws
+End Function
+
+Private Sub removeCellsBlank(target_ws As Worksheet)
+Const cst_target_col As Integer = 2
+Dim last_row As Long
+Dim i As Long
+Dim temp_str As String
+    last_row = target_ws.Cells.SpecialCells(xlCellTypeLastCell).Row
+    For i = 3 To last_row
+        If target_ws.Cells(i, cst_target_col).Value = "" Then
+            Exit For
+        End If
+        target_ws.Cells(i, cst_target_col).Value = removeBlank(target_ws.Cells(i, cst_target_col).Value)
+    Next i
+End Sub
+
+Private Function removeBlank(target_value As String) As String
+Dim temp_str As String
+    temp_str = Replace(target_value, "@", "")
+    temp_str = Replace(temp_str, " ", "")
+    removeBlank = temp_str
+End Function
+
+Private Sub linkDepartmentByName(target_ws As Worksheet, fulltime_dept_ws As Worksheet, parttime_dept_ws As Worksheet)
 Const dept_vlookup_idx As Integer = 2
 Const financial_resource_vlookup_idx As Integer = 6
+Const vlookupRange As String = "B:H"
 Dim target_header_list() As Variant
 Dim last_row As Long
 Dim i As Long
-Dim fulltime_dept_ws As Worksheet
-Dim parttime_dept_ws As Worksheet
 Dim input_str As String
 Dim target_name_idx As Integer
 Dim target_output_idx As Integer
@@ -129,28 +158,37 @@ Dim financial_resource_info As Variant
     target_name_idx = getArrayIdx(target_header_list, cst_header_name)
     target_output_idx = getArrayIdx(target_header_list, cst_header_dept)
     target_output_financial_resource_idx = getArrayIdx(target_header_list, cst_header_financial_resource)
-    Set fulltime_dept_ws = dept_wb.Worksheets(target_year & cst_fulltime)
-    Set parttime_dept_ws = dept_wb.Worksheets(target_year & cst_parttime)
     last_row = target_ws.Cells.SpecialCells(xlCellTypeLastCell).Row
     For i = 2 To last_row
-        input_str = target_ws.Cells(i, target_name_idx + 1)
+        input_str = target_ws.Cells(i, target_name_idx + 1).Value
         If input_str = "" Then
             Exit For
         End If
-        dept_info = exec_vlookup(input_str, fulltime_dept_ws.Range("B:H"), dept_vlookup_idx)
-        financial_resource_info = exec_vlookup(input_str, fulltime_dept_ws.Range("B:H"), financial_resource_vlookup_idx)
+        dept_info = exec_vlookup(input_str, fulltime_dept_ws.Range(vlookupRange), dept_vlookup_idx)
+        financial_resource_info = exec_vlookup(input_str, fulltime_dept_ws.Range(vlookupRange), financial_resource_vlookup_idx)
         If IsEmpty(dept_info) Then
-            dept_info = exec_vlookup(input_str, parttime_dept_ws.Range("B:H"), dept_vlookup_idx)
-            financial_resource_info = exec_vlookup(input_str, parttime_dept_ws.Range("B:H"), financial_resource_vlookup_idx)
+            dept_info = exec_vlookup(input_str, parttime_dept_ws.Range(vlookupRange), dept_vlookup_idx)
+            financial_resource_info = exec_vlookup(input_str, parttime_dept_ws.Range(vlookupRange), financial_resource_vlookup_idx)
         End If
         If IsEmpty(dept_info) Then
-            dept_info = "ï¼ï¼ï¼ã‚¨ãƒ©ãƒ¼ï¼ï¼ï¼"
+            dept_info = "IIIƒGƒ‰[III"
             financial_resource_info = ""
         End If
         target_ws.Cells(i, target_output_idx + 1) = dept_info
         target_ws.Cells(i, target_output_financial_resource_idx + 1) = financial_resource_info
+        target_ws.Cells(i, target_name_idx + 1) = ""
     Next i
 End Sub
+
+Private Function exec_vlookup(input_str As String, vloookup_range As Range, target_idx As Integer) As Variant
+Dim temp As Variant
+Dim temp_str As String
+    temp_str = removeBlank(input_str)
+    On Error Resume Next
+    temp = Application.WorksheetFunction.VLookup(temp_str, vloookup_range, target_idx, False)
+    On Error GoTo 0
+    exec_vlookup = temp
+End Function
 
 Private Sub copyFromInputToOutput(input_path As String, file_list() As String, output_wb As Workbook, input_password As String)
 On Error GoTo Finl_L
@@ -166,11 +204,11 @@ Dim error_str As String
     ThisWorkbook.Worksheets(1).Cells.Clear
     For i = LBound(file_list) To UBound(file_list)
         On Error Resume Next
-        Set input_wb = Workbooks.Open(Filename:=input_path & "Â¥" & file_list(i), ReadOnly:=True, password:=input_password)
+        Set input_wb = Workbooks.Open(Filename:=input_path & "\" & file_list(i), ReadOnly:=True, password:=input_password)
         If Err.Number = 0 Then
-            error_str = error_str & file_list(i) & "ã‚’ã‚ªãƒ¼ãƒ—ãƒ³ã—ã¾ã—ãŸ" & vbCrLf
+            error_str = error_str & file_list(i) & "‚ğƒI[ƒvƒ“‚µ‚Ü‚µ‚½" & vbCrLf
         Else
-            error_str = error_str & file_list(i) & "ã®ã‚ªãƒ¼ãƒ—ãƒ³ã«å¤±æ•—ã—ã¾ã—ãŸ" & vbCrLf
+            error_str = error_str & file_list(i) & "‚ÌƒI[ƒvƒ“‚É¸”s‚µ‚Ü‚µ‚½" & vbCrLf
             Err.Clear
             GoTo nextfile
         End If
@@ -318,8 +356,8 @@ Dim header_list As Variant
         .RowAxisLayout xlTabularRow
         .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(dept_idx))
         .PivotFields(header_list(dept_idx)).Orientation = xlRowField
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(total_spending_idx)), "åˆè¨ˆ / " & header_list(total_spending_idx), xlSum
-        .PivotFields("å€‹æ•° / " & cst_header_dept).Orientation = xlHidden
+        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(total_spending_idx)), "‡Œv / " & header_list(total_spending_idx), xlSum
+        .PivotFields("ŒÂ” / " & cst_header_dept).Orientation = xlHidden
     End With
     Set output_ws = Nothing
     Set input_ws = Nothing
@@ -347,9 +385,9 @@ Dim header_list As Variant
         .PivotFields(header_list(dept_idx)).Orientation = xlRowField
         .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(resource_idx))
         .PivotFields(header_list(resource_idx)).Orientation = xlRowField
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(total_spending_idx)), "åˆè¨ˆ / " & header_list(total_spending_idx), xlSum
-        .PivotFields("å€‹æ•° / " & cst_header_dept).Orientation = xlHidden
-        .PivotFields("å€‹æ•° / " & cst_header_financial_resource).Orientation = xlHidden
+        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(total_spending_idx)), "‡Œv / " & header_list(total_spending_idx), xlSum
+        .PivotFields("ŒÂ” / " & cst_header_dept).Orientation = xlHidden
+        .PivotFields("ŒÂ” / " & cst_header_financial_resource).Orientation = xlHidden
         .PivotFields(cst_header_dept).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
     End With
     Set output_ws = Nothing
