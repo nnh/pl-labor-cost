@@ -29,6 +29,7 @@ End Function
 
 Public Sub main()
 On Error GoTo Finl_L
+Const dept_wb_target_ws_count = 2
 Dim parentPath As String
 Dim inputPath As String
 Dim extPath As String
@@ -45,10 +46,10 @@ Dim input_year As String
 Dim deptlist_wb As Workbook
 Dim dept_full_ws_name As String
 Dim dept_part_ws_name As String
-Dim dept_full_ws As Worksheet
-Dim dept_part_ws As Worksheet
 Dim output_wb_ws_name_list As Variant
 Dim add_ws_count As Integer
+Dim temp_ws As Worksheet
+Dim dept_ws_exist_check As Integer
     Application.ScreenUpdating = False
     save_addsheet_cnt = Application.SheetsInNewWorkbook
     parentPath = Left(ThisWorkbook.Path, InStrRev(ThisWorkbook.Path, "¥") - 1)
@@ -91,6 +92,20 @@ Dim add_ws_count As Integer
     End If
     dept_full_ws_name = input_year & cst_fulltime
     dept_part_ws_name = input_year & cst_parttime
+    ' Sheet existence check
+    dept_ws_exist_check = 0
+    For Each temp_ws In deptlist_wb.Worksheets
+        If (temp_ws.Name = dept_full_ws_name) Or (temp_ws.Name = dept_part_ws_name) Then
+            dept_ws_exist_check = dept_ws_exist_check + 1
+        End If
+        If dept_ws_exist_check >= dept_wb_target_ws_count Then
+            Exit For
+        End If
+    Next temp_ws
+    If dept_ws_exist_check < dept_wb_target_ws_count Then
+        MsgBox prompt:="該当年度の部署メンバー一覧シートが存在しなかったため処理を終了します"
+        GoTo Finl_L
+    End If
     ' Create a workbook for output
     output_wb_ws_name_list = Array(cst_summary_by_dept, cst_summary_by_dept_and_resource, cst_fulltime, cst_parttime, cst_full_part, dept_full_ws_name, dept_part_ws_name)
     add_ws_count = UBound(output_wb_ws_name_list) + 1
@@ -99,7 +114,9 @@ Dim add_ws_count As Integer
     For i = LBound(output_wb_ws_name_list) To UBound(output_wb_ws_name_list)
         output_wb.Worksheets(i + 1).Name = output_wb_ws_name_list(i)
     Next i
-    Call copyFromInputToOutput(inputPath, fileList, output_wb, input_str)
+    If copyFromInputToOutput(inputPath, fileList, output_wb, input_str) Then
+        GoTo Err_L
+    End If
     Call editOutputWorksheet(output_wb.Worksheets(cst_fulltime))
     Call editOutputWorksheet(output_wb.Worksheets(cst_parttime))
     ' Summary of full-time and part-time
@@ -111,24 +128,24 @@ Dim add_ws_count As Integer
     Application.DisplayAlerts = True
     Call sortCellsBySeqAndYear(output_wb.Worksheets(cst_full_part), xlYes)
     ' Link department
-    Set dept_full_ws = copyDeptWs(deptlist_wb, output_wb.Worksheets(dept_full_ws_name))
-    Set dept_part_ws = copyDeptWs(deptlist_wb, output_wb.Worksheets(dept_part_ws_name))
-    Call linkDepartmentByName(output_wb.Worksheets(cst_full_part), dept_full_ws, dept_part_ws)
+    Call linkDepartmentByName(output_wb.Worksheets(cst_full_part), deptlist_wb, dept_full_ws_name, dept_part_ws_name)
     ' Total Expenditure for each staff number
-    output_wb.Worksheets(cst_summary_by_dept).Activate
     Call createPivottableByDept(output_wb, cst_full_part, cst_summary_by_dept)
-    output_wb.Worksheets(cst_summary_by_dept_and_resource).Activate
     Call createPivottableByDeptAndResource(output_wb, cst_full_part, cst_summary_by_dept_and_resource)
-    dept_full_ws.Visible = xlSheetHidden
-    dept_part_ws.Visible = xlSheetHidden
-    With output_wb.Worksheets(1)
-        .Activate
-        .Cells(1, 1).Select
+    ' Save the output workbook
+    With output_wb
+        With Worksheets(1)
+            .Activate
+            .Cells(1, 1).Select
+        End With
+        .SaveAs outputPath & "¥" & Format(Now(), "yyyymmdd_hhmmss") & ".xlsx"
+        .Close
     End With
-    output_wb.SaveAs outputPath & "¥" & Format(Now(), "yyyymmdd_hhmmss") & ".xlsx"
-    output_wb.Close
+    GoTo Finl_L
+Err_L:
+    output_wb.Close savechanges:=False
 Finl_L:
-    deptlist_wb.Close saveChanges:=False
+    deptlist_wb.Close savechanges:=False
     Application.SheetsInNewWorkbook = save_addsheet_cnt
     Application.ScreenUpdating = True
     MsgBox prompt:="処理が終了しました"
@@ -164,20 +181,28 @@ Dim temp_str As String
     removeBlank = temp_str
 End Function
 
-Private Sub linkDepartmentByName(target_ws As Worksheet, fulltime_dept_ws As Worksheet, parttime_dept_ws As Worksheet)
+Private Sub linkDepartmentByName(target_ws As Worksheet, deptlist_wb As Workbook, dept_full_ws_name As String, dept_part_ws_name As String)
 Const dept_vlookup_idx As Integer = 2
-Const financial_resource_vlookup_idx As Integer = 6
+Const financial_resource_vlookup_idx As Integer = 7
 Const vlookupRange As String = "B:H"
 Dim target_header_list() As Variant
 Dim last_row As Long
 Dim i As Long
 Dim input_str As String
+Dim target_id_idx As Integer
 Dim target_name_idx As Integer
 Dim target_output_idx As Integer
 Dim target_output_financial_resource_idx As Integer
 Dim dept_info As Variant
 Dim financial_resource_info As Variant
+Dim dept_full_ws As Worksheet
+Dim dept_part_ws As Worksheet
+Dim output_wb As Workbook
+    Set output_wb = target_ws.Parent
+    Set dept_full_ws = copyDeptWs(deptlist_wb, output_wb.Worksheets(dept_full_ws_name))
+    Set dept_part_ws = copyDeptWs(deptlist_wb, output_wb.Worksheets(dept_part_ws_name))
     target_header_list = arrayHeaderList()
+    target_id_idx = getArrayIdx(target_header_list, cst_header_id)
     target_name_idx = getArrayIdx(target_header_list, cst_header_name)
     target_output_idx = getArrayIdx(target_header_list, cst_header_dept)
     target_output_financial_resource_idx = getArrayIdx(target_header_list, cst_header_financial_resource)
@@ -187,11 +212,11 @@ Dim financial_resource_info As Variant
         If input_str = "" Then
             Exit For
         End If
-        dept_info = exec_vlookup(input_str, fulltime_dept_ws.Range(vlookupRange), dept_vlookup_idx)
-        financial_resource_info = exec_vlookup(input_str, fulltime_dept_ws.Range(vlookupRange), financial_resource_vlookup_idx)
+        dept_info = exec_vlookup(input_str, dept_full_ws.Range(vlookupRange), dept_vlookup_idx)
+        financial_resource_info = exec_vlookup(input_str, dept_full_ws.Range(vlookupRange), financial_resource_vlookup_idx)
         If IsEmpty(dept_info) Then
-            dept_info = exec_vlookup(input_str, parttime_dept_ws.Range(vlookupRange), dept_vlookup_idx)
-            financial_resource_info = exec_vlookup(input_str, parttime_dept_ws.Range(vlookupRange), financial_resource_vlookup_idx)
+            dept_info = exec_vlookup(input_str, dept_part_ws.Range(vlookupRange), dept_vlookup_idx)
+            financial_resource_info = exec_vlookup(input_str, dept_part_ws.Range(vlookupRange), financial_resource_vlookup_idx)
         End If
         If IsEmpty(dept_info) Then
             dept_info = "！！！エラー！！！"
@@ -199,8 +224,13 @@ Dim financial_resource_info As Variant
         End If
         target_ws.Cells(i, target_output_idx + 1) = dept_info
         target_ws.Cells(i, target_output_financial_resource_idx + 1) = financial_resource_info
+        target_ws.Cells(i, target_id_idx + 1) = ""
         target_ws.Cells(i, target_name_idx + 1) = ""
     Next i
+    dept_full_ws.Visible = xlSheetHidden
+    dept_part_ws.Visible = xlSheetHidden
+    Set dept_part_ws = Nothing
+    Set dept_full_ws = Nothing
 End Sub
 
 Private Function exec_vlookup(input_str As String, vloookup_range As Range, target_idx As Integer) As Variant
@@ -213,7 +243,7 @@ Dim temp_str As String
     exec_vlookup = temp
 End Function
 
-Private Sub copyFromInputToOutput(input_path As String, file_list() As String, output_wb As Workbook, input_password As String)
+Private Function copyFromInputToOutput(input_path As String, file_list() As String, output_wb As Workbook, input_password As String) As Boolean
 On Error GoTo Finl_L
 Dim input_wb As Workbook
 Dim ws As Sheets
@@ -224,6 +254,8 @@ Dim output_parttime_last_row As Long
 Dim i As Long
 Dim file_Path As String
 Dim error_str As String
+Dim error_f As Boolean
+    error_f = False
     ThisWorkbook.Worksheets(1).Cells.Clear
     For i = LBound(file_list) To UBound(file_list)
         On Error Resume Next
@@ -232,8 +264,9 @@ Dim error_str As String
             error_str = error_str & file_list(i) & "をオープンしました" & vbCrLf
         Else
             error_str = error_str & file_list(i) & "のオープンに失敗しました" & vbCrLf
-            Err.Clear
-            GoTo nextfile
+            MsgBox "ファイルのオープンに失敗したため処理を終了します"
+            error_f = True
+            GoTo Finl_L
         End If
         On Error GoTo 0
         yymm = "'" & Left(input_wb.Name, 4)
@@ -246,14 +279,14 @@ Dim error_str As String
                 output_parttime_last_row = outputValues(temp_ws, output_wb.Worksheets(cst_parttime), output_parttime_last_row, yymm)
             End If
         Next temp_ws
-        input_wb.Close saveChanges:=False
-nextfile:
+        input_wb.Close savechanges:=False
     Next i
 Finl_L:
     ThisWorkbook.Worksheets(1).Cells(1, 1) = Left(error_str, Len(error_str) - 1)
     Set ws = Nothing
     Set input_wb = Nothing
-End Sub
+    copyFromInputToOutput = error_f
+End Function
 
 Private Function outputValues(input_ws As Worksheet, output_ws As Worksheet, save_last_row As Long, yymm As String) As Long
 Const cst_input_start_row As Integer = 4
@@ -394,6 +427,7 @@ Dim pv_info As pivottable_info
 End Sub
 Private Function setPivottableInfo(output_wb As Workbook, input_ws_name As String, output_ws_name As String, pv_name As String) As pivottable_info
 Dim pv_info As pivottable_info
+    output_wb.Worksheets(output_ws_name).Activate
     With pv_info
         .cst_pivottable_name = pv_name
         .header_list = arrayHeaderList()

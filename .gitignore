@@ -5,7 +5,6 @@
 /RAWDATA/*
 /RESULT/
 !/RAWDATA/EXT/
-/output/
 /diff/
 /diffedit/
 *.Rproj
@@ -56,12 +55,4 @@ Temporary Items
 *.xlsx
 *.csv
 packrat/lib*/
-/input/
-/external/
-/variable_list/
-/log/
-/used_option_csv/
-/R/ADS/
-/R/LOG/
-/ads_bef/
-programs/~$Book1.xlsm
+~*.xlsm
