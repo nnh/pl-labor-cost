@@ -1,5 +1,15 @@
 Attribute VB_Name = "pl_labor_cost"
 Option Explicit
+Type pivottable_info
+    cst_pivottable_name As String
+    dept_idx As Integer
+    resource_idx As Integer
+    total_spending_idx As Integer
+    input_ws As Worksheet
+    output_ws As Worksheet
+    header_list As Variant
+    range_area As String
+End Type
 Const cst_summary_by_dept As String = "所属毎"
 Const cst_summary_by_dept_and_resource As String = "所属・財源毎"
 Const cst_fulltime As String = "常勤"
@@ -33,8 +43,12 @@ Dim output_last_row As Long
 Dim input_str As String
 Dim input_year As String
 Dim deptlist_wb As Workbook
+Dim dept_full_ws_name As String
+Dim dept_part_ws_name As String
 Dim dept_full_ws As Worksheet
 Dim dept_part_ws As Worksheet
+Dim output_wb_ws_name_list As Variant
+Dim add_ws_count As Integer
     Application.ScreenUpdating = False
     save_addsheet_cnt = Application.SheetsInNewWorkbook
     parentPath = Left(ThisWorkbook.Path, InStrRev(ThisWorkbook.Path, "¥") - 1)
@@ -75,14 +89,16 @@ Dim dept_part_ws As Worksheet
         MsgBox prompt:="処理年度が入力されなかったため処理を終了します"
         GoTo Finl_L
     End If
+    dept_full_ws_name = input_year & cst_fulltime
+    dept_part_ws_name = input_year & cst_parttime
     ' Create a workbook for output
-    Application.SheetsInNewWorkbook = 5
+    output_wb_ws_name_list = Array(cst_summary_by_dept, cst_summary_by_dept_and_resource, cst_fulltime, cst_parttime, cst_full_part, dept_full_ws_name, dept_part_ws_name)
+    add_ws_count = UBound(output_wb_ws_name_list) + 1
+    Application.SheetsInNewWorkbook = add_ws_count
     Set output_wb = Workbooks.Add
-    output_wb.Worksheets(1).Name = cst_summary_by_dept
-    output_wb.Worksheets(2).Name = cst_summary_by_dept_and_resource
-    output_wb.Worksheets(3).Name = cst_fulltime
-    output_wb.Worksheets(4).Name = cst_parttime
-    output_wb.Worksheets(5).Name = cst_full_part
+    For i = LBound(output_wb_ws_name_list) To UBound(output_wb_ws_name_list)
+        output_wb.Worksheets(i + 1).Name = output_wb_ws_name_list(i)
+    Next i
     Call copyFromInputToOutput(inputPath, fileList, output_wb, input_str)
     Call editOutputWorksheet(output_wb.Worksheets(cst_fulltime))
     Call editOutputWorksheet(output_wb.Worksheets(cst_parttime))
@@ -95,8 +111,8 @@ Dim dept_part_ws As Worksheet
     Application.DisplayAlerts = True
     Call sortCellsBySeqAndYear(output_wb.Worksheets(cst_full_part), xlYes)
     ' Link department
-    Set dept_full_ws = copyDeptWs(deptlist_wb, output_wb, input_year & cst_fulltime)
-    Set dept_part_ws = copyDeptWs(deptlist_wb, output_wb, input_year & cst_parttime)
+    Set dept_full_ws = copyDeptWs(deptlist_wb, output_wb.Worksheets(dept_full_ws_name))
+    Set dept_part_ws = copyDeptWs(deptlist_wb, output_wb.Worksheets(dept_part_ws_name))
     Call linkDepartmentByName(output_wb.Worksheets(cst_full_part), dept_full_ws, dept_part_ws)
     ' Total Expenditure for each staff number
     output_wb.Worksheets(cst_summary_by_dept).Activate
@@ -118,12 +134,13 @@ Finl_L:
     MsgBox prompt:="処理が終了しました"
 End Sub
 
-Private Function copyDeptWs(copyFrom_wb As Workbook, copyTo_wb As Workbook, dept_ws_name As String) As Worksheet
-Dim dept_ws As Worksheet
-    copyFrom_wb.Worksheets(dept_ws_name).Copy after:=copyTo_wb.Worksheets(copyTo_wb.Worksheets.Count)
-    Set dept_ws = copyTo_wb.Worksheets(dept_ws_name)
-    Call removeCellsBlank(dept_ws)
-    Set copyDeptWs = dept_ws
+Private Function copyDeptWs(copyFrom_wb As Workbook, copyTo_ws As Worksheet) As Worksheet
+Dim temp As Long
+Dim dept_ws_name As String
+    dept_ws_name = copyTo_ws.Name
+    temp = copyAllCells(copyFrom_wb.Worksheets(dept_ws_name), copyTo_ws, 1, 1, 1, 1)
+    Call removeCellsBlank(copyTo_ws)
+    Set copyDeptWs = copyTo_ws
 End Function
 
 Private Sub removeCellsBlank(target_ws As Worksheet)
@@ -344,58 +361,48 @@ Dim res As Integer
 End Function
 
 Private Sub createPivottableByDept(output_wb As Workbook, input_ws_name As String, output_ws_name As String)
-Const cst_pivottable_name As String = "pt2"
-Dim dept_idx As Integer
-Dim total_spending_idx As Integer
-Dim input_ws As Worksheet
-Dim output_ws As Worksheet
-Dim header_list As Variant
-    header_list = arrayHeaderList()
-    dept_idx = getArrayIdx(header_list, cst_header_dept)
-    total_spending_idx = getArrayIdx(header_list, cst_header_total_spending)
-    Set input_ws = output_wb.Worksheets(input_ws_name)
-    Set output_ws = output_wb.Worksheets(output_ws_name)
-    output_wb.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=input_ws.Range("A:G")).createPivottable _
-                                 TableDestination:=output_ws.Range("A1"), TableName:=cst_pivottable_name
-    With output_ws.PivotTables(cst_pivottable_name)
+Dim pv_info As pivottable_info
+    pv_info = setPivottableInfo(output_wb, input_ws_name, output_ws_name, "pv2")
+    output_wb.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=pv_info.input_ws.Range(pv_info.range_area)).createPivottable _
+                                 TableDestination:=pv_info.output_ws.Range("A1"), TableName:=pv_info.cst_pivottable_name
+    With pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name)
         .InGridDropZones = True
         .RowAxisLayout xlTabularRow
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(dept_idx))
-        .PivotFields(header_list(dept_idx)).Orientation = xlRowField
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(total_spending_idx)), "合計 / " & header_list(total_spending_idx), xlSum
-        .PivotFields("個数 / " & cst_header_dept).Orientation = xlHidden
+        .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.dept_idx))
+        .PivotFields(pv_info.header_list(pv_info.dept_idx)).Orientation = xlRowField
+        .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.total_spending_idx)), "合計 / " & pv_info.header_list(pv_info.total_spending_idx), xlSum
+'        .PivotFields("個数 / " & cst_header_dept).Orientation = xlHidden
     End With
-    Set output_ws = Nothing
-    Set input_ws = Nothing
 End Sub
 Private Sub createPivottableByDeptAndResource(output_wb As Workbook, input_ws_name As String, output_ws_name As String)
-Const cst_pivottable_name As String = "pt3"
-Dim dept_idx As Integer
-Dim resource_idx As Integer
-Dim total_spending_idx As Integer
-Dim input_ws As Worksheet
-Dim output_ws As Worksheet
-Dim header_list As Variant
-    header_list = arrayHeaderList()
-    dept_idx = getArrayIdx(header_list, cst_header_dept)
-    resource_idx = getArrayIdx(header_list, cst_header_financial_resource)
-    total_spending_idx = getArrayIdx(header_list, cst_header_total_spending)
-    Set input_ws = output_wb.Worksheets(input_ws_name)
-    Set output_ws = output_wb.Worksheets(output_ws_name)
-    output_wb.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=input_ws.Range("A:G")).createPivottable _
-                                 TableDestination:=output_ws.Range("A1"), TableName:=cst_pivottable_name
-    With output_ws.PivotTables(cst_pivottable_name)
+Dim pv_info As pivottable_info
+    pv_info = setPivottableInfo(output_wb, input_ws_name, output_ws_name, "pv3")
+    output_wb.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=pv_info.input_ws.Range(pv_info.range_area)).createPivottable _
+                                 TableDestination:=pv_info.output_ws.Range("A1"), TableName:=pv_info.cst_pivottable_name
+    With pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name)
         .InGridDropZones = True
         .RowAxisLayout xlTabularRow
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(dept_idx))
-        .PivotFields(header_list(dept_idx)).Orientation = xlRowField
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(resource_idx))
-        .PivotFields(header_list(resource_idx)).Orientation = xlRowField
-        .AddDataField output_ws.PivotTables(cst_pivottable_name).PivotFields(header_list(total_spending_idx)), "合計 / " & header_list(total_spending_idx), xlSum
-        .PivotFields("個数 / " & cst_header_dept).Orientation = xlHidden
-        .PivotFields("個数 / " & cst_header_financial_resource).Orientation = xlHidden
+        .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.dept_idx))
+        .PivotFields(pv_info.header_list(pv_info.dept_idx)).Orientation = xlRowField
+        .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.resource_idx))
+        .PivotFields(pv_info.header_list(pv_info.resource_idx)).Orientation = xlRowField
+        .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.total_spending_idx)), "合計 / " & pv_info.header_list(pv_info.total_spending_idx), xlSum
+'        .PivotFields("個数 / " & cst_header_dept).Orientation = xlHidden
+'        .PivotFields("個数 / " & cst_header_financial_resource).Orientation = xlHidden
         .PivotFields(cst_header_dept).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
     End With
-    Set output_ws = Nothing
-    Set input_ws = Nothing
 End Sub
+Private Function setPivottableInfo(output_wb As Workbook, input_ws_name As String, output_ws_name As String, pv_name As String) As pivottable_info
+Dim pv_info As pivottable_info
+    With pv_info
+        .cst_pivottable_name = pv_name
+        .header_list = arrayHeaderList()
+        .dept_idx = getArrayIdx(.header_list, cst_header_dept)
+        .resource_idx = getArrayIdx(.header_list, cst_header_financial_resource)
+        .total_spending_idx = getArrayIdx(.header_list, cst_header_total_spending)
+        Set .input_ws = output_wb.Worksheets(input_ws_name)
+        Set .output_ws = output_wb.Worksheets(output_ws_name)
+        .range_area = "A:G"
+    End With
+    setPivottableInfo = pv_info
+End Function
