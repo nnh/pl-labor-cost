@@ -16,6 +16,7 @@ Const cst_fulltime As String = "常勤"
 Const cst_parttime As String = "非常勤"
 Const cst_full_part As String = "常勤・非常勤"
 Const cst_deptlist_name As String = "部署メンバー一覧.xlsx"
+Const cst_header_seq As String = "通番"
 Const cst_header_id As String = "職員番号"
 Const cst_header_name As String = "氏名"
 Const cst_header_dept As String = "所属"
@@ -23,7 +24,7 @@ Const cst_header_total_spending As String = "総支出額"
 Const cst_header_financial_resource As String = "財源"
 Private Function arrayHeaderList() As Variant
 Dim cst_header_list As Variant
-    cst_header_list = Array("年月", "通番", "職員番号", cst_header_name, cst_header_total_spending, cst_header_dept, cst_header_financial_resource)
+    cst_header_list = Array("年月", cst_header_seq, cst_header_id, cst_header_name, cst_header_total_spending, cst_header_dept, cst_header_financial_resource)
     arrayHeaderList = cst_header_list
 End Function
 
@@ -156,39 +157,18 @@ Dim temp As Long
 Dim dept_ws_name As String
     dept_ws_name = copyTo_ws.Name
     temp = copyAllCells(copyFrom_wb.Worksheets(dept_ws_name), copyTo_ws, 1, 1, 1, 1)
-    Call removeCellsBlank(copyTo_ws)
     Set copyDeptWs = copyTo_ws
 End Function
 
-Private Sub removeCellsBlank(target_ws As Worksheet)
-Const cst_target_col As Integer = 2
-Dim last_row As Long
-Dim i As Long
-Dim temp_str As String
-    last_row = target_ws.Cells.SpecialCells(xlCellTypeLastCell).Row
-    For i = 3 To last_row
-        If target_ws.Cells(i, cst_target_col).Value = "" Then
-            Exit For
-        End If
-        target_ws.Cells(i, cst_target_col).Value = removeBlank(target_ws.Cells(i, cst_target_col).Value)
-    Next i
-End Sub
-
-Private Function removeBlank(target_value As String) As String
-Dim temp_str As String
-    temp_str = Replace(target_value, "　", "")
-    temp_str = Replace(temp_str, " ", "")
-    removeBlank = temp_str
-End Function
-
 Private Sub linkDepartmentByName(target_ws As Worksheet, deptlist_wb As Workbook, dept_full_ws_name As String, dept_part_ws_name As String)
-Const dept_vlookup_idx As Integer = 2
-Const financial_resource_vlookup_idx As Integer = 7
-Const vlookupRange As String = "B:H"
+Const dept_vlookup_idx As Integer = 3
+Const financial_resource_vlookup_idx As Integer = 8
+Const vlookupRange As String = "B:I"
 Dim target_header_list() As Variant
 Dim last_row As Long
 Dim i As Long
 Dim input_str As String
+Dim input_lng As Long
 Dim target_id_idx As Integer
 Dim target_name_idx As Integer
 Dim target_output_idx As Integer
@@ -208,19 +188,21 @@ Dim output_wb As Workbook
     target_output_financial_resource_idx = getArrayIdx(target_header_list, cst_header_financial_resource)
     last_row = target_ws.Cells.SpecialCells(xlCellTypeLastCell).Row
     For i = 2 To last_row
-        input_str = target_ws.Cells(i, target_name_idx + 1).Value
-        If input_str = "" Then
+        input_str = target_ws.Cells(i, target_id_idx + 1).Value
+        If (input_str = "") Or (Not IsNumeric(input_str)) Then
             Exit For
         End If
-        dept_info = exec_vlookup(input_str, dept_full_ws.Range(vlookupRange), dept_vlookup_idx)
-        financial_resource_info = exec_vlookup(input_str, dept_full_ws.Range(vlookupRange), financial_resource_vlookup_idx)
+        input_lng = CLng(input_str)
+        dept_info = exec_vlookup(input_lng, dept_full_ws.Range(vlookupRange), dept_vlookup_idx)
+        financial_resource_info = exec_vlookup(input_lng, dept_full_ws.Range(vlookupRange), financial_resource_vlookup_idx)
         If IsEmpty(dept_info) Then
-            dept_info = exec_vlookup(input_str, dept_part_ws.Range(vlookupRange), dept_vlookup_idx)
-            financial_resource_info = exec_vlookup(input_str, dept_part_ws.Range(vlookupRange), financial_resource_vlookup_idx)
+            dept_info = exec_vlookup(input_lng, dept_part_ws.Range(vlookupRange), dept_vlookup_idx)
+            financial_resource_info = exec_vlookup(input_lng, dept_part_ws.Range(vlookupRange), financial_resource_vlookup_idx)
         End If
         If IsEmpty(dept_info) Then
             dept_info = "！！！エラー！！！"
             financial_resource_info = ""
+        Else
         End If
         target_ws.Cells(i, target_output_idx + 1) = dept_info
         target_ws.Cells(i, target_output_financial_resource_idx + 1) = financial_resource_info
@@ -233,12 +215,10 @@ Dim output_wb As Workbook
     Set dept_full_ws = Nothing
 End Sub
 
-Private Function exec_vlookup(input_str As String, vloookup_range As Range, target_idx As Integer) As Variant
+Private Function exec_vlookup(input_lng As Long, vloookup_range As Range, target_idx As Integer) As Variant
 Dim temp As Variant
-Dim temp_str As String
-    temp_str = removeBlank(input_str)
     On Error Resume Next
-    temp = Application.WorksheetFunction.VLookup(temp_str, vloookup_range, target_idx, False)
+    temp = Application.WorksheetFunction.VLookup(input_lng, vloookup_range, target_idx, False)
     On Error GoTo 0
     exec_vlookup = temp
 End Function
@@ -317,6 +297,7 @@ Dim one_after_total_spending_col As String
 Dim temp_col As String
 Dim header_list() As Variant
 Dim i As Integer
+Dim temp_row As Long
     header_list = arrayHeaderList()
     If output_ws.Name = cst_fulltime Then
         total_spending_col = cst_fulltime_total_spending_col
@@ -343,6 +324,22 @@ Dim i As Integer
     For i = LBound(header_list) To UBound(header_list)
         output_ws.Cells(1, i + 1) = header_list(i)
     Next i
+    ' Edit seq
+Dim target_header_list() As Variant
+Dim target_seq_idx As Integer
+Dim temp_str As String
+    target_header_list = arrayHeaderList()
+    target_seq_idx = getArrayIdx(target_header_list, cst_header_seq)
+    temp_row = 2
+    Do
+        temp_str = Trim(output_ws.Cells(temp_row, target_seq_idx + 1).Value)
+        If temp_str = "" Or Not IsNumeric(temp_str) Then
+            Exit Do
+        End If
+        output_ws.Cells(temp_row, target_seq_idx + 1).Value = output_ws.Name & "_" & Format(temp_str, "000")
+        temp_row = temp_row + 1
+    Loop
+    
 End Sub
 
 ' https://docs.microsoft.com/ja-jp/office/troubleshoot/excel/convert-excel-column-numbers
