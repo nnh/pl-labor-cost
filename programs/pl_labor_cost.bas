@@ -359,6 +359,9 @@ End Function
 Private Function copyAllCells(input_ws As Worksheet, output_ws As Worksheet, output_start_row As Long, output_start_col As Long, input_start_row As Long, input_start_col As Long)
 Dim input_last_cell As Range
 Dim output_last_row As Long
+    If input_ws.FilterMode Then
+        input_ws.ShowAllData
+    End If
     Set input_last_cell = input_ws.Cells.SpecialCells(xlCellTypeLastCell)
     output_last_row = output_start_row + input_last_cell.Row - input_start_row
     input_ws.Range(input_ws.Cells(input_start_row, input_start_col), input_last_cell).Copy
