@@ -22,6 +22,7 @@ Const cst_header_name As String = "氏名"
 Const cst_header_dept As String = "所属"
 Const cst_header_total_spending As String = "総支出額"
 Const cst_header_financial_resource As String = "財源"
+Const cst_test_f_name As String = "test_f"
 Private Function arrayHeaderList() As Variant
 Dim cst_header_list As Variant
     cst_header_list = Array("年月", cst_header_seq, cst_header_id, cst_header_name, cst_header_total_spending, cst_header_dept, cst_header_financial_resource)
@@ -206,7 +207,10 @@ Dim output_wb As Workbook
         End If
         target_ws.Cells(i, target_output_idx + 1) = dept_info
         target_ws.Cells(i, target_output_financial_resource_idx + 1) = financial_resource_info
-        target_ws.Cells(i, target_id_idx + 1) = ""
+        
+        If ThisWorkbook.Worksheets(1).CheckBoxes(cst_test_f_name) = xlOff Then
+            target_ws.Cells(i, target_id_idx + 1) = ""
+        End If
         target_ws.Cells(i, target_name_idx + 1) = ""
     Next i
     dept_full_ws.Visible = xlSheetHidden
@@ -250,6 +254,9 @@ Dim error_f As Boolean
         End If
         On Error GoTo 0
         yymm = "'" & Left(input_wb.Name, 4)
+        If InStr(input_wb.Name, "賞与") > 0 Then
+            yymm = yymm & "_賞与"
+        End If
         Set ws = input_wb.Worksheets
         For Each temp_ws In ws
             If Left(temp_ws.Name, Len(cst_fulltime)) = cst_fulltime Then
