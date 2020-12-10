@@ -163,7 +163,7 @@ End Function
 
 Private Sub linkDepartmentByName(target_ws As Worksheet, deptlist_wb As Workbook, dept_full_ws_name As String, dept_part_ws_name As String)
 Const dept_vlookup_idx As Integer = 3
-Const financial_resource_vlookup_idx As Integer = 8
+Const financial_resource_vlookup_idx As Integer = 7
 Const vlookupRange As String = "B:I"
 Dim target_header_list() As Variant
 Dim last_row As Long
