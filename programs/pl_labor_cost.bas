@@ -10,11 +10,13 @@ Type pivottable_info
     header_list As Variant
     range_area As String
 End Type
+Dim error_str As String
 Const cst_summary_by_dept As String = "所属毎"
 Const cst_summary_by_dept_and_resource As String = "所属・財源毎"
 Const cst_fulltime As String = "常勤"
 Const cst_parttime As String = "非常勤"
 Const cst_full_part As String = "常勤・非常勤"
+Const cst_log = "ログ"
 Const cst_deptlist_name As String = "部署メンバー一覧.xlsx"
 Const cst_header_seq As String = "通番"
 Const cst_header_id As String = "職員番号"
@@ -52,6 +54,7 @@ Dim output_wb_ws_name_list As Variant
 Dim add_ws_count As Integer
 Dim temp_ws As Worksheet
 Dim dept_ws_exist_check As Integer
+    error_str = ""
     Application.ScreenUpdating = False
     save_addsheet_cnt = Application.SheetsInNewWorkbook
     parentPath = Left(ThisWorkbook.Path, InStrRev(ThisWorkbook.Path, "¥") - 1)
@@ -109,7 +112,7 @@ Dim dept_ws_exist_check As Integer
         GoTo Finl_L
     End If
     ' Create a workbook for output
-    output_wb_ws_name_list = Array(cst_summary_by_dept, cst_summary_by_dept_and_resource, cst_fulltime, cst_parttime, cst_full_part, dept_full_ws_name, dept_part_ws_name)
+    output_wb_ws_name_list = Array(cst_summary_by_dept, cst_summary_by_dept_and_resource, cst_fulltime, cst_parttime, cst_full_part, dept_full_ws_name, dept_part_ws_name, cst_log)
     add_ws_count = UBound(output_wb_ws_name_list) + 1
     Application.SheetsInNewWorkbook = add_ws_count
     Set output_wb = Workbooks.Add
@@ -134,13 +137,23 @@ Dim dept_ws_exist_check As Integer
     ' Total Expenditure for each staff number
     Call createPivottableByDept(output_wb, cst_full_part, cst_summary_by_dept)
     Call createPivottableByDeptAndResource(output_wb, cst_full_part, cst_summary_by_dept_and_resource)
+    ' Output logs
+    With output_wb.Worksheets(cst_log)
+        .Cells(1, 1).Value = Left(error_str, Len(error_str) - 1)
+        With .Columns(1)
+            .ColumnWidth = 200
+            .AutoFit
+        End With
+        .Rows(1).AutoFit
+    End With
+    output_wb.Worksheets(1).Activate
     ' Save the output workbook
     With output_wb
         With Worksheets(1)
             .Activate
             .Cells(1, 1).Select
         End With
-        .SaveAs outputPath & "¥" & Format(Now(), "yyyymmdd_hhmmss") & ".xlsx"
+        .SaveAs outputPath & "¥" & Format(Now(), "yyyymmdd_hhmmss") & "_" & input_year & ".xlsx"
         .Close
     End With
     GoTo Finl_L
@@ -237,7 +250,6 @@ Dim output_fulltime_last_row As Long
 Dim output_parttime_last_row As Long
 Dim i As Long
 Dim file_Path As String
-Dim error_str As String
 Dim error_f As Boolean
     error_f = False
     ThisWorkbook.Worksheets(1).Cells.Clear
@@ -269,7 +281,6 @@ Dim error_f As Boolean
         input_wb.Close savechanges:=False
     Next i
 Finl_L:
-    ThisWorkbook.Worksheets(1).Cells(1, 1) = Left(error_str, Len(error_str) - 1)
     Set ws = Nothing
     Set input_wb = Nothing
     copyFromInputToOutput = error_f
