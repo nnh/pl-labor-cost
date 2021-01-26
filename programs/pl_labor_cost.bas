@@ -10,6 +10,12 @@ Type pivottable_info
     header_list As Variant
     range_area As String
 End Type
+Type deptValues
+    dept As Variant
+    financial_resource As Variant
+    dept_sort_order As Variant
+    financial_resource_sort_order As Variant
+End Type
 Dim error_str As String
 Const cst_summary_by_dept As String = "所属毎"
 Const cst_summary_by_dept_and_resource As String = "所属・財源毎"
@@ -24,13 +30,16 @@ Const cst_header_name As String = "氏名"
 Const cst_header_dept As String = "所属"
 Const cst_header_total_spending As String = "総支出額"
 Const cst_header_financial_resource As String = "財源"
+Const cst_header_dept_sort_order As String = "所属ソート順"
+Const cst_header_financial_resource_sort_order As String = "財源ソート順"
 Const cst_test_f_name As String = "test_f"
 Private Function arrayHeaderList() As Variant
 Dim cst_header_list As Variant
-    cst_header_list = Array("年月", cst_header_seq, cst_header_id, cst_header_name, cst_header_total_spending, cst_header_dept, cst_header_financial_resource)
+    cst_header_list = Array("年月", cst_header_seq, cst_header_id, cst_header_name, cst_header_total_spending, _
+                            cst_header_dept, cst_header_financial_resource, cst_header_dept_sort_order, _
+                            cst_header_financial_resource_sort_order)
     arrayHeaderList = cst_header_list
 End Function
-
 Public Sub main()
 On Error GoTo Finl_L
 Const dept_wb_target_ws_count = 2
@@ -134,6 +143,8 @@ Dim dept_ws_exist_check As Integer
     Call sortCellsBySeqAndYear(output_wb.Worksheets(cst_full_part), xlYes)
     ' Link department
     Call linkDepartmentByName(output_wb.Worksheets(cst_full_part), deptlist_wb, dept_full_ws_name, dept_part_ws_name)
+    ' Get sort order
+    
     ' Total Expenditure for each staff number
     Call createPivottableByDept(output_wb, cst_full_part, cst_summary_by_dept)
     Call createPivottableByDeptAndResource(output_wb, cst_full_part, cst_summary_by_dept_and_resource)
@@ -166,6 +177,10 @@ Finl_L:
     MsgBox prompt:="処理が終了しました"
 End Sub
 
+Private Sub getSortOrder(input_ws As Worksheet, sort_order_ws As Worksheet, key_col As Integer, vlookup_idx As Integer)
+
+End Sub
+
 Private Function copyDeptWs(copyFrom_wb As Workbook, copyTo_ws As Worksheet) As Worksheet
 Dim temp As Long
 Dim dept_ws_name As String
@@ -173,11 +188,20 @@ Dim dept_ws_name As String
     temp = copyAllCells(copyFrom_wb.Worksheets(dept_ws_name), copyTo_ws, 1, 1, 1, 1)
     Set copyDeptWs = copyTo_ws
 End Function
-
-Private Sub linkDepartmentByName(target_ws As Worksheet, deptlist_wb As Workbook, dept_full_ws_name As String, dept_part_ws_name As String)
+Private Function getdeptValues(input_lng As Long, input_ws As Worksheet) As deptValues
 Const dept_vlookup_idx As Integer = 3
 Const financial_resource_vlookup_idx As Integer = 7
-Const vlookupRange As String = "B:I"
+Const dept_sort_order_vlookup_idx As Integer = 24
+Const financial_resource_sort_order_vlookup_idx As Integer = 25
+Const vlookupRange As String = "B:Z"
+Dim deptVal As deptValues
+    deptVal.dept = exec_vlookup(input_lng, input_ws.Range(vlookupRange), dept_vlookup_idx)
+    deptVal.financial_resource = exec_vlookup(input_lng, input_ws.Range(vlookupRange), financial_resource_vlookup_idx)
+    deptVal.dept_sort_order = exec_vlookup(input_lng, input_ws.Range(vlookupRange), dept_sort_order_vlookup_idx)
+    deptVal.financial_resource_sort_order = exec_vlookup(input_lng, input_ws.Range(vlookupRange), financial_resource_sort_order_vlookup_idx)
+    getdeptValues = deptVal
+End Function
+Private Sub linkDepartmentByName(target_ws As Worksheet, deptlist_wb As Workbook, dept_full_ws_name As String, dept_part_ws_name As String)
 Dim target_header_list() As Variant
 Dim last_row As Long
 Dim i As Long
@@ -186,9 +210,10 @@ Dim input_lng As Long
 Dim target_id_idx As Integer
 Dim target_name_idx As Integer
 Dim target_output_idx As Integer
+Dim target_output_sort_order_idx As Integer
 Dim target_output_financial_resource_idx As Integer
-Dim dept_info As Variant
-Dim financial_resource_info As Variant
+Dim target_output_financial_resource_sort_order_idx As Integer
+Dim deptVal As deptValues
 Dim dept_full_ws As Worksheet
 Dim dept_part_ws As Worksheet
 Dim output_wb As Workbook
@@ -200,6 +225,8 @@ Dim output_wb As Workbook
     target_name_idx = getArrayIdx(target_header_list, cst_header_name)
     target_output_idx = getArrayIdx(target_header_list, cst_header_dept)
     target_output_financial_resource_idx = getArrayIdx(target_header_list, cst_header_financial_resource)
+    target_output_financial_resource_sort_order_idx = getArrayIdx(target_header_list, cst_header_financial_resource_sort_order)
+    target_output_sort_order_idx = getArrayIdx(target_header_list, cst_header_dept_sort_order)
     last_row = target_ws.Cells.SpecialCells(xlCellTypeLastCell).Row
     For i = 2 To last_row
         input_str = target_ws.Cells(i, target_id_idx + 1).Value
@@ -207,20 +234,19 @@ Dim output_wb As Workbook
             Exit For
         End If
         input_lng = CLng(input_str)
-        dept_info = exec_vlookup(input_lng, dept_full_ws.Range(vlookupRange), dept_vlookup_idx)
-        financial_resource_info = exec_vlookup(input_lng, dept_full_ws.Range(vlookupRange), financial_resource_vlookup_idx)
-        If IsEmpty(dept_info) Then
-            dept_info = exec_vlookup(input_lng, dept_part_ws.Range(vlookupRange), dept_vlookup_idx)
-            financial_resource_info = exec_vlookup(input_lng, dept_part_ws.Range(vlookupRange), financial_resource_vlookup_idx)
+        deptVal = getdeptValues(input_lng, dept_full_ws)
+        If IsEmpty(deptVal.dept) Then
+            deptVal = getdeptValues(input_lng, dept_part_ws)
         End If
-        If IsEmpty(dept_info) Then
-            dept_info = "！！！エラー！！！"
-            financial_resource_info = ""
+        If IsEmpty(deptVal.dept) Then
+            deptVal.dept = "！！！エラー！！！"
+            deptVal.financial_resource = ""
         Else
         End If
-        target_ws.Cells(i, target_output_idx + 1) = dept_info
-        target_ws.Cells(i, target_output_financial_resource_idx + 1) = financial_resource_info
-        
+        target_ws.Cells(i, target_output_idx + 1) = deptVal.dept
+        target_ws.Cells(i, target_output_financial_resource_idx + 1) = deptVal.financial_resource
+        target_ws.Cells(i, target_output_sort_order_idx + 1) = deptVal.dept_sort_order
+        target_ws.Cells(i, target_output_financial_resource_sort_order_idx + 1) = deptVal.financial_resource_sort_order
         If ThisWorkbook.Worksheets(1).CheckBoxes(cst_test_f_name) = xlOff Then
             target_ws.Cells(i, target_id_idx + 1) = ""
         End If
@@ -316,6 +342,9 @@ Dim temp_col As String
 Dim header_list() As Variant
 Dim i As Integer
 Dim temp_row As Long
+Dim target_header_list() As Variant
+Dim target_seq_idx As Integer
+Dim temp_str As String
     header_list = arrayHeaderList()
     If output_ws.Name = cst_fulltime Then
         total_spending_col = cst_fulltime_total_spending_col
@@ -343,9 +372,6 @@ Dim temp_row As Long
         output_ws.Cells(1, i + 1) = header_list(i)
     Next i
     ' Edit seq
-Dim target_header_list() As Variant
-Dim target_seq_idx As Integer
-Dim temp_str As String
     target_header_list = arrayHeaderList()
     target_seq_idx = getArrayIdx(target_header_list, cst_header_seq)
     temp_row = 2
