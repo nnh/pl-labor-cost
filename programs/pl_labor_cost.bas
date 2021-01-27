@@ -9,6 +9,8 @@ Type pivottable_info
     output_ws As Worksheet
     header_list As Variant
     range_area As String
+    dept_sort_idx As Integer
+    resource_sort_idx As Integer
 End Type
 Type deptValues
     dept As Variant
@@ -445,11 +447,15 @@ Dim pv_info As pivottable_info
     With pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name)
         .InGridDropZones = True
         .RowAxisLayout xlTabularRow
+        .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.dept_sort_idx))
+        .PivotFields(pv_info.header_list(pv_info.dept_sort_idx)).Orientation = xlRowField
         .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.dept_idx))
         .PivotFields(pv_info.header_list(pv_info.dept_idx)).Orientation = xlRowField
         .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.total_spending_idx)), "合計 / " & pv_info.header_list(pv_info.total_spending_idx), xlSum
 '        .PivotFields("個数 / " & cst_header_dept).Orientation = xlHidden
+        .PivotFields(pv_info.header_list(pv_info.dept_sort_idx)).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
     End With
+    output_wb.Worksheets(output_ws_name).Columns("E").NumberFormatLocal = "_ * #,##0_ ;_ * -#,##0_ ;_ * ""-""_ ;_ @_ "
 End Sub
 Private Sub createPivottableByDeptAndResource(output_wb As Workbook, input_ws_name As String, output_ws_name As String)
 Dim pv_info As pivottable_info
@@ -459,15 +465,23 @@ Dim pv_info As pivottable_info
     With pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name)
         .InGridDropZones = True
         .RowAxisLayout xlTabularRow
+        .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.dept_sort_idx))
+        .PivotFields(pv_info.header_list(pv_info.dept_sort_idx)).Orientation = xlRowField
         .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.dept_idx))
         .PivotFields(pv_info.header_list(pv_info.dept_idx)).Orientation = xlRowField
+        .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.resource_sort_idx))
+        .PivotFields(pv_info.header_list(pv_info.resource_sort_idx)).Orientation = xlRowField
         .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.resource_idx))
         .PivotFields(pv_info.header_list(pv_info.resource_idx)).Orientation = xlRowField
         .AddDataField pv_info.output_ws.PivotTables(pv_info.cst_pivottable_name).PivotFields(pv_info.header_list(pv_info.total_spending_idx)), "合計 / " & pv_info.header_list(pv_info.total_spending_idx), xlSum
 '        .PivotFields("個数 / " & cst_header_dept).Orientation = xlHidden
 '        .PivotFields("個数 / " & cst_header_financial_resource).Orientation = xlHidden
-        .PivotFields(cst_header_dept).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
+        .PivotFields(pv_info.header_list(pv_info.dept_sort_idx)).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
+        .PivotFields(pv_info.header_list(pv_info.dept_idx)).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
+        .PivotFields(pv_info.header_list(pv_info.resource_sort_idx)).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
+        .PivotFields(pv_info.header_list(pv_info.resource_idx)).Subtotals = Array(False, False, False, False, False, False, False, False, False, False, False, False)
     End With
+    output_wb.Worksheets(output_ws_name).Columns("I").NumberFormatLocal = "_ * #,##0_ ;_ * -#,##0_ ;_ * ""-""_ ;_ @_ "
 End Sub
 Private Function setPivottableInfo(output_wb As Workbook, input_ws_name As String, output_ws_name As String, pv_name As String) As pivottable_info
 Dim pv_info As pivottable_info
@@ -478,9 +492,11 @@ Dim pv_info As pivottable_info
         .dept_idx = getArrayIdx(.header_list, cst_header_dept)
         .resource_idx = getArrayIdx(.header_list, cst_header_financial_resource)
         .total_spending_idx = getArrayIdx(.header_list, cst_header_total_spending)
+        .dept_sort_idx = getArrayIdx(.header_list, cst_header_dept_sort_order)
+        .resource_sort_idx = getArrayIdx(.header_list, cst_header_financial_resource_sort_order)
         Set .input_ws = output_wb.Worksheets(input_ws_name)
         Set .output_ws = output_wb.Worksheets(output_ws_name)
-        .range_area = "A:G"
+        .range_area = "A:I"
     End With
     setPivottableInfo = pv_info
 End Function
